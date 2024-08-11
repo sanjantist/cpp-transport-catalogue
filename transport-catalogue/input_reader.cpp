@@ -1,10 +1,13 @@
 #include "input_reader.h"
 
 #include <cassert>
+#include <istream>
 #include <iterator>
+#include <ostream>
 #include <string_view>
 #include <vector>
 
+#include "stat_reader.h"
 #include "transport_catalogue.h"
 
 /**
@@ -82,7 +85,8 @@ std::vector<std::string_view> ParseRoute(std::string_view route) {
     return results;
 }
 
-catalogue::input_reader::CommandDescription ParseCommandDescription(std::string_view line) {
+catalogue::input_reader::CommandDescription ParseCommandDescription(
+    std::string_view line) {
     auto colon_pos = line.find(':');
     if (colon_pos == line.npos) {
         return {};
@@ -131,5 +135,33 @@ void catalogue::input_reader::InputReader::ApplyCommands(
     }
     for (auto& command : buses) {
         catalogue.AddRoute(command.id, ParseRoute(command.description));
+    }
+}
+
+void catalogue::input_reader::GetBaseRequests(
+    std::istream& input, catalogue::TransportCatalogue& catalogue) {
+    int base_request_count;
+    input >> base_request_count >> std::ws;
+
+    {
+        input_reader::InputReader reader;
+        for (int i = 0; i < base_request_count; ++i) {
+            std::string line;
+            getline(input, line);
+            reader.ParseLine(line);
+        }
+        reader.ApplyCommands(catalogue);
+    }
+}
+
+void catalogue::input_reader::GetStatRequests(
+    std::istream& input, std::ostream& output,
+    catalogue::TransportCatalogue& catalogue) {
+    int stat_request_count;
+    input >> stat_request_count >> std::ws;
+    for (int i = 0; i < stat_request_count; ++i) {
+        std::string line;
+        getline(input, line);
+        stat_reader::ParseAndPrintStat(catalogue, line, output);
     }
 }

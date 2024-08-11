@@ -1,4 +1,6 @@
 #pragma once
+#include <istream>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,5 +37,9 @@ class InputReader {
    private:
     std::vector<CommandDescription> commands_;
 };
+
+void GetBaseRequests(std::istream& input, TransportCatalogue& catalogue);
+void GetStatRequests(std::istream& input, std::ostream& output,
+                     TransportCatalogue& catalogue);
 }  // namespace input_reader
 }  // namespace catalogue

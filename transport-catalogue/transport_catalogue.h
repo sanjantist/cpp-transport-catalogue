@@ -24,8 +24,12 @@ struct Bus {
     std::vector<const Stop*> route;
 };
 
-struct RouteInfo {
+struct RouteStat {
     std::string_view id;
+    std::unordered_set<std::string_view> unique_stops;
+    double route_length;
+    size_t stops;
+    bool is_found = true;
 };
 
 class TransportCatalogue {
@@ -37,6 +41,7 @@ class TransportCatalogue {
     const Stop* FindStop(const std::string_view stop) const;
     const Bus* GetRouteInfo(std::string_view route) const;
     const std::set<std::string_view>* GetStopInfo(std::string_view stop) const;
+    const RouteStat GetRouteStat(std::string_view id) const;
 
    private:
     std::deque<Stop> stops_;

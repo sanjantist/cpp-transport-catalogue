@@ -72,3 +72,33 @@ const std::set<std::string_view>* catalogue::TransportCatalogue::GetStopInfo(
 
     return &stop_to_buses_.at(stop_pos->second);
 }
+
+const catalogue::RouteStat catalogue::TransportCatalogue::GetRouteStat(
+    std::string_view id) const {
+    RouteStat result;
+    result.id = id;
+
+    auto bus_pos = busname_to_buses_.find(id);
+    if (bus_pos == busname_to_buses_.end()) {
+        result.is_found = false;
+        return result;
+    }
+
+    const Bus* bus = busname_to_buses_.at(id);
+    std::unordered_set<std::string_view> unique_stops;
+    for (auto& stop : bus->route) {
+        unique_stops.insert(stop->id);
+    }
+    result.unique_stops = unique_stops;
+
+    double route_length = 0.0;
+    for (size_t i = 0; i < bus->route.size() - 1; ++i) {
+        route_length += ComputeDistance(bus->route.at(i)->coords,
+                                        bus->route.at(i + 1)->coords);
+    }
+    result.route_length = route_length;
+
+    result.stops = bus->route.size();
+
+    return result;
+}

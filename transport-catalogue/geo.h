@@ -4,8 +4,8 @@
 
 #define EARTH_RADIUS 6371000
 
-namespace catalogue {
-namespace geo {
+
+namespace catalogue::geo {
 struct Coordinates {
     double lat;
     double lng;
@@ -28,5 +28,4 @@ inline double ComputeDistance(Coordinates from, Coordinates to) {
                     cos(abs(from.lng - to.lng) * dr)) *
            EARTH_RADIUS;
 }
-}  // namespace geo
-}  // namespace catalogue
+} // namespace catalogue::geo

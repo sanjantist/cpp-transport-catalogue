@@ -1,15 +1,18 @@
 #pragma once
+#include <cctype>
+#include <deque>
 #include <istream>
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "geo.h"
 #include "transport_catalogue.h"
 
-namespace catalogue {
-namespace input_reader {
+namespace catalogue::input_reader {
 struct CommandDescription {
     // Определяет, задана ли команда (поле command непустое)
     explicit operator bool() const { return !command.empty(); }
@@ -29,8 +32,12 @@ class InputReader {
      */
     void ParseLine(std::string_view line);
 
+    void ParseStopsDistances(std::string_view line, std::string_view from_stop,
+                             TransportCatalogue& catalogue) const;
+
     /**
-     * Наполняет данными транспортный справочник, используя команды из commands_
+     * Наполняет данными транспортный справочник, используя команды из
+     * commands_
      */
     void ApplyCommands(catalogue::TransportCatalogue& catalogue) const;
 
@@ -41,5 +48,4 @@ class InputReader {
 void GetBaseRequests(std::istream& input, TransportCatalogue& catalogue);
 void GetStatRequests(std::istream& input, std::ostream& output,
                      TransportCatalogue& catalogue);
-}  // namespace input_reader
-}  // namespace catalogue
+}  // namespace catalogue::input_reader

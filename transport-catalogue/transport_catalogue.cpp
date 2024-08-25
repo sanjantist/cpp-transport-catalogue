@@ -1,7 +1,10 @@
 #include "transport_catalogue.h"
 
+#include <cstddef>
 #include <set>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "geo.h"
@@ -12,8 +15,8 @@ void catalogue::TransportCatalogue::AddRoute(
         Bus bus;
         bus.id = id;
         bus.route.reserve(stops.size());
-        for (auto& stop : stops) {
-            if (!stopname_to_stop_.count(stop)) {
+        for (const auto& stop : stops) {
+            if (stopname_to_stop_.count(stop) == 0) {
                 return;
             }
             bus.route.push_back(stopname_to_stop_.at(stop));
@@ -40,8 +43,20 @@ void catalogue::TransportCatalogue::AddStop(const std::string& id,
     }
 }
 
+void catalogue::TransportCatalogue::AddDistances(
+    const std::pair<std::pair<std::string_view, std::string_view>, int>&
+        distance) {
+    auto from_stop = stopname_to_stop_.find(distance.first.first);
+    auto to_stop = stopname_to_stop_.find(distance.first.second);
+    if (from_stop != stopname_to_stop_.end() &&
+        to_stop != stopname_to_stop_.end()) {
+        stops_to_distances_[{from_stop->second->id, to_stop->second->id}] =
+            distance.second;
+    }
+}
+
 const catalogue::Bus* catalogue::TransportCatalogue::FindRoute(
-    const std::string_view route) const {
+    std::string_view route) const {
     auto bus_pos = busname_to_buses_.find(route);
     if (bus_pos != busname_to_buses_.end()) {
         return bus_pos->second;
@@ -50,7 +65,7 @@ const catalogue::Bus* catalogue::TransportCatalogue::FindRoute(
 }
 
 const catalogue::Stop* catalogue::TransportCatalogue::FindStop(
-    const std::string_view stop) const {
+    std::string_view stop) const {
     auto stop_pos = stopname_to_stop_.find(stop);
     if (stop_pos != stopname_to_stop_.end()) {
         return stop_pos->second;
@@ -91,13 +106,27 @@ const catalogue::RouteStat catalogue::TransportCatalogue::GetRouteStat(
     }
     result.unique_stops = unique_stops;
 
+    double geo_route_length = 0.0;
+    for (size_t i = 0; i < bus->route.size() - 1; ++i) {
+        geo_route_length += ComputeDistance(bus->route.at(i)->coords,
+                                            bus->route.at(i + 1)->coords);
+    }
+
     double route_length = 0.0;
     for (size_t i = 0; i < bus->route.size() - 1; ++i) {
-        route_length += ComputeDistance(bus->route.at(i)->coords,
-                                        bus->route.at(i + 1)->coords);
+        std::string_view stop1, stop2;
+        stop1 = bus->route.at(i)->id;
+        stop2 = bus->route.at(i + 1)->id;
+        auto pos = stops_to_distances_.find(std::pair(stop1, stop2));
+        if (pos != stops_to_distances_.end()) {
+            route_length += pos->second;
+        } else {
+            route_length += stops_to_distances_.at(std::pair(stop2, stop1));
+        }
     }
-    result.route_length = route_length;
 
+    result.route_length = route_length;
+    result.curvature = route_length / geo_route_length;
     result.stops = bus->route.size();
 
     return result;

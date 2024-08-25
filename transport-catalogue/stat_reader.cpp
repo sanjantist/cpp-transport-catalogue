@@ -35,7 +35,8 @@ std::string catalogue::stat_reader::ParseRouteStat(
 
     result << stat.stops << " stops on route, ";
     result << stat.unique_stops.size() << " unique stops, ";
-    result << stat.route_length << " route length" << std::endl;
+    result << stat.route_length << " route length, ";
+    result << stat.curvature << " curvature" << std::endl;
 
     return result.str();
 }

@@ -50,9 +50,8 @@ class TransportCatalogue {
     void AddRoute(const std::string& id,
                   const std::vector<std::string_view>& stops);
     void AddStop(const std::string& id, const geo::Coordinates& coords);
-    void AddDistances(
-        const std::pair<std::pair<std::string_view, std::string_view>, int>&
-            distance);
+    void AddDistances(std::string_view from_stop, std::string_view to_stop,
+                      int distance);
     const Bus* FindRoute(std::string_view route) const;
     const Stop* FindStop(std::string_view stop) const;
     const Bus* GetRouteInfo(std::string_view route) const;

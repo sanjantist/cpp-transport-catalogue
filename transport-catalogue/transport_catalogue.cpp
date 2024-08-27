@@ -43,15 +43,13 @@ void catalogue::TransportCatalogue::AddStop(const std::string& id,
     }
 }
 
-void catalogue::TransportCatalogue::AddDistances(
-    const std::pair<std::pair<std::string_view, std::string_view>, int>&
-        distance) {
-    auto from_stop = stopname_to_stop_.find(distance.first.first);
-    auto to_stop = stopname_to_stop_.find(distance.first.second);
-    if (from_stop != stopname_to_stop_.end() &&
-        to_stop != stopname_to_stop_.end()) {
-        stops_to_distances_[{from_stop->second->id, to_stop->second->id}] =
-            distance.second;
+void catalogue::TransportCatalogue::AddDistances(std::string_view from_stop,
+                                                 std::string_view to_stop,
+                                                 int distance) {
+    auto from = stopname_to_stop_.find(from_stop);
+    auto to = stopname_to_stop_.find(to_stop);
+    if (from != stopname_to_stop_.end() && to != stopname_to_stop_.end()) {
+        stops_to_distances_[{from->second->id, to->second->id}] = distance;
     }
 }
 

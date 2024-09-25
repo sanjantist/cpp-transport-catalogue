@@ -1,23 +1,24 @@
 #include "transport_catalogue.h"
 
-#include <cstddef>
-#include <set>
+#include <optional>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 #include "geo.h"
 
-void catalogue::TransportCatalogue::AddRoute(
-    const std::string& id, const std::vector<std::string_view>& stops) {
-    if (!busname_to_buses_.count(id)) {
+std::optional<catalogue::TransportCatalogue::BusPtr>
+catalogue::TransportCatalogue::AddBus(
+    const std::string& id, const std::vector<std::string_view>& stops,
+    bool is_roundtrip) {
+    auto bus_pos = busname_to_buses_.find(id);
+    if (bus_pos == busname_to_buses_.end()) {
         Bus bus;
         bus.id = id;
+        bus.is_roundtrip = is_roundtrip;
         bus.route.reserve(stops.size());
         for (const auto& stop : stops) {
             if (stopname_to_stop_.count(stop) == 0) {
-                return;
+                return std::nullopt;
             }
             bus.route.push_back(stopname_to_stop_.at(stop));
         }
@@ -28,19 +29,29 @@ void catalogue::TransportCatalogue::AddRoute(
         for (const Stop* stop : added_bus->route) {
             stop_to_buses_.at(stop).insert(added_bus->id);
         }
+
+        return added_bus;
     }
+
+    return std::nullopt;
 }
 
-void catalogue::TransportCatalogue::AddStop(const std::string& id,
-                                            const geo::Coordinates& coords) {
+std::optional<catalogue::TransportCatalogue::StopPtr>
+catalogue::TransportCatalogue::AddStop(const std::string& id,
+                                       const geo::Coordinates& coords) {
     Stop stop{id, coords};
 
-    if (!stopname_to_stop_.count(stop.id)) {
+    auto stop_pos = stopname_to_stop_.find(stop.id);
+    if (stop_pos == stopname_to_stop_.end()) {
         stops_.push_back(std::move(stop));
         const Stop* added_stop = &stops_.back();
         stopname_to_stop_.emplace(added_stop->id, added_stop);
         stop_to_buses_.emplace(added_stop, std::set<std::string_view>{});
+
+        return added_stop;
     }
+
+    return std::nullopt;
 }
 
 void catalogue::TransportCatalogue::AddDistances(std::string_view from_stop,
@@ -53,16 +64,25 @@ void catalogue::TransportCatalogue::AddDistances(std::string_view from_stop,
     }
 }
 
-const catalogue::Bus* catalogue::TransportCatalogue::FindRoute(
-    std::string_view route) const {
-    auto bus_pos = busname_to_buses_.find(route);
+int catalogue::TransportCatalogue::GetDistance(std::string_view from_stop,
+                                               std::string_view to_stop) const {
+    auto pos = stops_to_distances_.find(std::pair(from_stop, to_stop));
+    if (pos != stops_to_distances_.end()) {
+        return pos->second;
+    } else {
+        return stops_to_distances_.at(std::pair(to_stop, from_stop));
+    }
+}
+
+const Bus* catalogue::TransportCatalogue::FindBus(std::string_view bus) const {
+    auto bus_pos = busname_to_buses_.find(bus);
     if (bus_pos != busname_to_buses_.end()) {
         return bus_pos->second;
     }
     return nullptr;
 }
 
-const catalogue::Stop* catalogue::TransportCatalogue::FindStop(
+const Stop* catalogue::TransportCatalogue::FindStop(
     std::string_view stop) const {
     auto stop_pos = stopname_to_stop_.find(stop);
     if (stop_pos != stopname_to_stop_.end()) {
@@ -71,61 +91,12 @@ const catalogue::Stop* catalogue::TransportCatalogue::FindStop(
     return nullptr;
 }
 
-const catalogue::Bus* catalogue::TransportCatalogue::GetRouteInfo(
-    std::string_view route) const {
-    return FindRoute(route);
-}
-
-const std::set<std::string_view>* catalogue::TransportCatalogue::GetStopInfo(
-    std::string_view stop) const {
-    auto stop_pos = stopname_to_stop_.find(stop);
-    if (stop_pos == stopname_to_stop_.end()) {
-        return nullptr;
+const std::set<std::string_view>* catalogue::TransportCatalogue::GetBusesByStop(
+    std::string_view stop_name) const {
+    auto stop = FindStop(stop_name);
+    if (stop) {
+        return &stop_to_buses_.at(stop);
     }
 
-    return &stop_to_buses_.at(stop_pos->second);
-}
-
-const catalogue::RouteStat catalogue::TransportCatalogue::GetRouteStat(
-    std::string_view id) const {
-    RouteStat result;
-    result.id = id;
-
-    auto bus_pos = busname_to_buses_.find(id);
-    if (bus_pos == busname_to_buses_.end()) {
-        result.is_found = false;
-        return result;
-    }
-
-    const Bus* bus = busname_to_buses_.at(id);
-    std::unordered_set<std::string_view> unique_stops;
-    for (auto& stop : bus->route) {
-        unique_stops.insert(stop->id);
-    }
-    result.unique_stops = unique_stops;
-
-    double geo_route_length = 0.0;
-    for (size_t i = 0; i < bus->route.size() - 1; ++i) {
-        geo_route_length += ComputeDistance(bus->route.at(i)->coords,
-                                            bus->route.at(i + 1)->coords);
-    }
-
-    double route_length = 0.0;
-    for (size_t i = 0; i < bus->route.size() - 1; ++i) {
-        std::string_view stop1, stop2;
-        stop1 = bus->route.at(i)->id;
-        stop2 = bus->route.at(i + 1)->id;
-        auto pos = stops_to_distances_.find(std::pair(stop1, stop2));
-        if (pos != stops_to_distances_.end()) {
-            route_length += pos->second;
-        } else {
-            route_length += stops_to_distances_.at(std::pair(stop2, stop1));
-        }
-    }
-
-    result.route_length = route_length;
-    result.curvature = route_length / geo_route_length;
-    result.stops = bus->route.size();
-
-    return result;
+    return nullptr;
 }

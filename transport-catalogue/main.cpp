@@ -1,13 +1,12 @@
-#include <iostream>
-
-#include "input_reader.h"
+#include "json_reader.h"
 
 using namespace std;
 
 int main() {
     using namespace catalogue;
     TransportCatalogue catalogue;
+    JsonReader reader(cin, catalogue);
+    reader.ParseRequests(cout);
 
-    input_reader::GetBaseRequests(cin, catalogue);
-    input_reader::GetStatRequests(cin, cout, catalogue);
+    return 0;
 }

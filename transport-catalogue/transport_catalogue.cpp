@@ -1,9 +1,11 @@
 #include "transport_catalogue.h"
 
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <utility>
 
+#include "domain.h"
 #include "geo.h"
 
 std::optional<catalogue::TransportCatalogue::BusPtr>
@@ -70,8 +72,49 @@ int catalogue::TransportCatalogue::GetDistance(std::string_view from_stop,
     if (pos != stops_to_distances_.end()) {
         return pos->second;
     } else {
+        pos = stops_to_distances_.find(std::pair(to_stop, from_stop));
+        if (pos == stops_to_distances_.end()) {
+            throw std::runtime_error("no road between stops");
+        }
         return stops_to_distances_.at(std::pair(to_stop, from_stop));
     }
+}
+
+std::optional<BusStat> catalogue::TransportCatalogue::GetBusStat(
+    std::string_view bus_name) const {
+    BusStat result;
+    result.id = bus_name;
+
+    const Bus* bus = FindBus(bus_name);
+    if (bus == nullptr) {
+        return std::nullopt;
+    }
+
+    std::unordered_set<std::string_view> unique_stops;
+    for (auto& stop : bus->route) {
+        unique_stops.insert(stop->id);
+    }
+    result.unique_stops = unique_stops;
+
+    double geo_route_length = 0.0;
+    for (size_t i = 0; i < bus->route.size() - 1; ++i) {
+        geo_route_length += geo::ComputeDistance(bus->route.at(i)->coords,
+                                                 bus->route.at(i + 1)->coords);
+    }
+
+    double route_length = 0.0;
+    for (size_t i = 0; i < bus->route.size() - 1; ++i) {
+        std::string_view stop1, stop2;
+        stop1 = bus->route.at(i)->id;
+        stop2 = bus->route.at(i + 1)->id;
+        route_length += GetDistance(stop1, stop2);
+    }
+
+    result.route_length = route_length;
+    result.curvature = route_length / geo_route_length;
+    result.stops = bus->route.size();
+
+    return result;
 }
 
 const Bus* catalogue::TransportCatalogue::FindBus(std::string_view bus) const {

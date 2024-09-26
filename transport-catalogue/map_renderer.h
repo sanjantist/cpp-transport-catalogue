@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "domain.h"
+#include "geo.h"
 #include "svg.h"
 
 namespace renderer {
@@ -45,5 +46,18 @@ class MapRenderer {
     RenderSettings settings_;
     std::map<std::string_view, const Stop *> stops_;
     std::map<std::string_view, const Bus *> buses_;
+
+    void RenderBusRoutes(svg::Document &doc,
+                         const std::unordered_map<std::string_view, svg::Point>
+                             &stop_to_projected_point) const;
+    void RenderBusLabels(svg::Document &doc,
+                         const std::unordered_map<std::string_view, svg::Point>
+                             &stop_to_projected_point) const;
+    void RenderStops(svg::Document &doc,
+                     const std::unordered_map<std::string_view, svg::Point>
+                         &stop_to_projected_point) const;
+    void RenderStopLabels(svg::Document &doc,
+                          const std::unordered_map<std::string_view, svg::Point>
+                              &stop_to_projected_point) const;
 };
 }  // namespace renderer

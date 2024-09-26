@@ -24,6 +24,7 @@ class TransportCatalogue {
                       int distance);
 
     int GetDistance(std::string_view from_stop, std::string_view to_stop) const;
+    std::optional<BusStat> GetBusStat(std::string_view bus_name) const;
     const std::set<std::string_view>* GetBusesByStop(
         std::string_view stop_name) const;
 

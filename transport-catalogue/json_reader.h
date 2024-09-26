@@ -27,7 +27,7 @@ class JsonReader {
 
     RequestsInfo DivideRequests();
     void ParseBaseRequests();
-    void ParseStatRequests(std::ostream &output);
+    json::Document ParseStatRequests();
     void ParseRenderSettings();
 
     svg::Rgb ArrayToRgb(const json::Node &node);

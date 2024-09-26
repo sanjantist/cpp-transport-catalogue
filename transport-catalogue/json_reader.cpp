@@ -44,13 +44,7 @@ RequestsInfo JsonReader::DivideRequests() {
 void JsonReader::ParseRequests(std::ostream& out) {
     ParseBaseRequests();
     ParseRenderSettings();
-
-    std::stringstream output;
-    output << "[";
-    ParseStatRequests(output);
-    output << "]";
-
-    json::Document stat_result = json::Load(output);
+    json::Document stat_result = ParseStatRequests();
     json::Print(stat_result, out);
 }
 
@@ -108,65 +102,68 @@ void JsonReader::ParseBaseRequests() {
     }
 }
 
-void JsonReader::ParseStatRequests(std::ostream& output) {
-    bool is_first_request = true;
+json::Document JsonReader::ParseStatRequests() {
     RequestHandler handler{*catalogue_, renderer_};
+
+    json::Array root;
 
     for (const auto& request : requests_.stat_requests) {
         auto request_as_map = request.AsMap();
         int id = request_as_map.at("id"s).AsInt();
         std::string type = request_as_map.at("type"s).AsString();
 
-        if (is_first_request) {
-            is_first_request = false;
-        } else {
-            output << ", ";
-        }
-
         if (type == "Bus"s) {
             std::string name = request_as_map.at("name"s).AsString();
             auto stat = handler.GetBusStat(name);
+            json::Dict bus_info;
 
-            output << "{ " << "\"request_id\": " << id;
-            if (!stat) {
-                output << ", \"error_message\": \"not found\"}";
+            bus_info.emplace("request_id", id);
+            bus_info.emplace("name", name);
+
+            if (!stat.has_value()) {
+                bus_info.emplace("error_message", "not found");
             } else {
-                output << ", \"curvature\": " << stat->curvature
-                       << ", \"route_length\": " << stat->route_length
-                       << ", \"stop_count\": " << stat->stops
-                       << ", \"unique_stop_count\": "
-                       << stat->unique_stops.size() << "}";
+                bus_info.emplace("curvature", stat->curvature);
+                bus_info.emplace("route_length", stat->route_length);
+                bus_info.emplace("stop_count", int(stat->stops));
+                bus_info.emplace("unique_stop_count",
+                                 int(stat->unique_stops.size()));
             }
+            root.push_back(bus_info);
+
         } else if (type == "Stop"s) {
             std::string name = request_as_map.at("name"s).AsString();
             auto stat = handler.GetBusesByStop(name);
-            output << "{ \"request_id\": " << id;
+            json::Dict stop_info;
+
+            stop_info.emplace("request_id", id);
+            stop_info.emplace("name", name);
+
             if (stat == nullptr) {
-                output << ", \"error_message\": \"not found\"}";
+                stop_info.emplace("error_message", "not found");
             } else {
-                output << ", \"buses\": [";
-
-                bool is_first = true;
+                json::Array buses;
                 for (auto bus : *stat) {
-                    if (is_first) {
-                        output << "\"" << bus << "\"";
-                        is_first = false;
-                    } else {
-                        output << ",\"" << bus << "\"";
-                    }
+                    std::string str_bus(bus);
+                    buses.push_back(str_bus);
                 }
-
-                output << "]}";
+                stop_info.emplace("buses", buses);
             }
+            root.push_back(stop_info);
         } else if (type == "Map"s) {
-            output << "{ \"request_id\": " << id << ", \"map\": ";
+            json::Dict map_info;
+            map_info.emplace("request_id", id);
+
             std::ostringstream map_output;
             handler.RenderMap().Render(map_output);
             json::Node val(map_output.str());
-            json::PrintNode(val, {output});
-            output << "}";
+
+            map_info.emplace("map", val);
+            root.push_back(map_info);
         }
     }
+
+    return json::Document(root);
 }
 
 void JsonReader::ParseRenderSettings() {

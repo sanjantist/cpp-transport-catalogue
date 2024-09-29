@@ -11,8 +11,6 @@ namespace json {
 class Node;
 using Dict = std::map<std::string, Node>;
 using Array = std::vector<Node>;
-using Value =
-    std::variant<std::nullptr_t, Array, Dict, bool, int, double, std::string>;
 
 class ParsingError : public std::runtime_error {
    public:
@@ -21,6 +19,9 @@ class ParsingError : public std::runtime_error {
 
 class Node {
    public:
+    using Value = std::variant<std::nullptr_t, Array, Dict, bool, int, double,
+                               std::string>;
+
     const Value GetValue() const;
 
     Node() = default;

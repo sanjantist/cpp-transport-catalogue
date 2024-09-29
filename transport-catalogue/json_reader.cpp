@@ -9,6 +9,7 @@
 
 #include "domain.h"
 #include "json.h"
+#include "json_builder.h"
 #include "request_handler.h"
 
 using namespace std::literals;
@@ -105,7 +106,8 @@ void JsonReader::ParseBaseRequests() {
 json::Document JsonReader::ParseStatRequests() {
     RequestHandler handler{*catalogue_, renderer_};
 
-    json::Array root;
+    json::Builder builder;
+    builder.StartArray();
 
     for (const auto& request : requests_.stat_requests) {
         auto request_as_map = request.AsMap();
@@ -115,55 +117,55 @@ json::Document JsonReader::ParseStatRequests() {
         if (type == "Bus"s) {
             std::string name = request_as_map.at("name"s).AsString();
             auto stat = handler.GetBusStat(name);
-            json::Dict bus_info;
 
-            bus_info.emplace("request_id", id);
-            bus_info.emplace("name", name);
+            builder.StartDict().Key("request_id").Value(id);
 
             if (!stat.has_value()) {
-                bus_info.emplace("error_message", "not found");
+                builder.Key("error_message").Value("not found");
             } else {
-                bus_info.emplace("curvature", stat->curvature);
-                bus_info.emplace("route_length", stat->route_length);
-                bus_info.emplace("stop_count", int(stat->stops));
-                bus_info.emplace("unique_stop_count",
-                                 int(stat->unique_stops.size()));
+                builder.Key("curvature")
+                    .Value(stat->curvature)
+                    .Key("route_length")
+                    .Value(stat->route_length)
+                    .Key("stop_count")
+                    .Value(int(stat->stops))
+                    .Key("unique_stop_count")
+                    .Value(int(stat->unique_stops.size()));
             }
-            root.push_back(bus_info);
-
+            builder.EndDict();
         } else if (type == "Stop"s) {
             std::string name = request_as_map.at("name"s).AsString();
             auto stat = handler.GetBusesByStop(name);
-            json::Dict stop_info;
 
-            stop_info.emplace("request_id", id);
-            stop_info.emplace("name", name);
+            builder.StartDict().Key("request_id").Value(id);
 
             if (stat == nullptr) {
-                stop_info.emplace("error_message", "not found");
+                builder.Key("error_message").Value("not found");
             } else {
-                json::Array buses;
+                builder.Key("buses");
+                builder.StartArray();
                 for (auto bus : *stat) {
                     std::string str_bus(bus);
-                    buses.push_back(str_bus);
+                    builder.Value(str_bus);
                 }
-                stop_info.emplace("buses", buses);
+                builder.EndArray();
             }
-            root.push_back(stop_info);
+            builder.EndDict();
         } else if (type == "Map"s) {
-            json::Dict map_info;
-            map_info.emplace("request_id", id);
+            builder.StartDict().Key("request_id").Value(id);
 
             std::ostringstream map_output;
             handler.RenderMap().Render(map_output);
             json::Node val(map_output.str());
 
-            map_info.emplace("map", val);
-            root.push_back(map_info);
+            builder.Key("map").Value(val.AsString());
+            builder.EndDict();
         }
     }
 
-    return json::Document(root);
+    builder.EndArray();
+
+    return json::Document{builder.Build()};
 }
 
 void JsonReader::ParseRenderSettings() {

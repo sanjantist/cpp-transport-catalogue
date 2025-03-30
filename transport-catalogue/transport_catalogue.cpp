@@ -46,6 +46,7 @@ catalogue::TransportCatalogue::AddStop(const std::string& id,
     auto stop_pos = stopname_to_stop_.find(stop.id);
     if (stop_pos == stopname_to_stop_.end()) {
         stops_.push_back(std::move(stop));
+
         const Stop* added_stop = &stops_.back();
         stopname_to_stop_.emplace(added_stop->id, added_stop);
         stop_to_buses_.emplace(added_stop, std::set<std::string_view>{});

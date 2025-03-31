@@ -30,7 +30,7 @@ json::Dict RequestHandler::FindRoute(std::string_view from,
     router::TranstportRouter router(graph_);
     auto route =
         router.GetRoute(graph_data_.stop_name_to_in_vertex_id.at(std::string(from)),
-                        graph_data_.stop_name_to_in_vertex_id.at(std::string(to)) + 1);
+                        graph_data_.stop_name_to_in_vertex_id.at(std::string(to)));
     builder.StartDict();
     if (!route) {
         return builder.Key("error_message")

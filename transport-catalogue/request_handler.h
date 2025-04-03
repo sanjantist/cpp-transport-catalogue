@@ -39,5 +39,6 @@ class RequestHandler {
     const catalogue::TransportCatalogue& db_;
     const renderer::MapRenderer& renderer_;
     const graph::DirectedWeightedGraph<double>& graph_;
+    router::TranstportRouter router_;
     const GraphData graph_data_;
 };

@@ -100,38 +100,24 @@ void JsonReader::ParseBaseRequests() {
       auto bus = catalogue_->AddBus(id, stops_sv, is_roundtrip);
       if (bus) {
         renderer_.AddBusToMap(bus.value()->id, *bus);
-        for (const auto& stop : bus.value()->route) {
-          renderer_.AddStopToMap(stop->id, stop);
-        }
-      }
-
-      if (bus) {
-        renderer_.AddBusToMap(bus.value()->id, *bus);
-        auto route_parsing_end =
-            (is_roundtrip ? stops_sv.end() - 1
-                          : stops_sv.begin() + stops_sv.size() / 2 + 1);
-        for (auto it_l = stops_sv.begin(); it_l != route_parsing_end; ++it_l) {
+        for (auto it_l = stops_sv.begin(); it_l != stops_sv.end() - 1; ++it_l) {
           std::string_view stop_from_name = catalogue_->FindStop(*it_l)->id;
           size_t current_span_count = 0;
           double current_travel_time = 0.0;
           for (auto it_r = it_l + 1; it_r != stops_sv.end(); ++it_r) {
             std::string_view stop_to_name = catalogue_->FindStop(*it_r)->id;
-            if (stop_from_name != stop_to_name &&
-                !IsEdgeAdded(stop_from_name, stop_to_name)) {
-              graph::VertexId stop_from_id, stop_to_id;
-              stop_from_id = stop_name_to_in_vertex_id_.at(stop_from_name) + 1;
-              stop_to_id = stop_name_to_in_vertex_id_.at(stop_to_name);
+            graph::VertexId stop_from_id, stop_to_id;
+            stop_from_id = stop_name_to_in_vertex_id_.at(stop_from_name) + 1;
+            stop_to_id = stop_name_to_in_vertex_id_.at(stop_to_name);
 
-              ++current_span_count;
-              std::string_view prev_stop =
-                  catalogue_->FindStop(*(it_r - 1))->id;
-              current_travel_time += GetTravelTime(
-                  catalogue_->GetDistance(prev_stop, stop_to_name));
-              graph::EdgeId edge = graph_.AddEdge(
-                  {stop_from_id, stop_to_id, current_travel_time});
-              edge_to_bus_name_[edge] = (*bus)->id;
-              edge_to_span_count_[edge] = current_span_count;
-            }
+            ++current_span_count;
+            std::string_view prev_stop = catalogue_->FindStop(*(it_r - 1))->id;
+            current_travel_time +=
+                GetTravelTime(catalogue_->GetDistance(prev_stop, stop_to_name));
+            graph::EdgeId edge =
+                graph_.AddEdge({stop_from_id, stop_to_id, current_travel_time});
+            edge_to_bus_name_[edge] = (*bus)->id;
+            edge_to_span_count_[edge] = current_span_count;
           }
           renderer_.AddStopToMap(stop_from_name,
                                  catalogue_->FindStop(stop_from_name));
@@ -168,11 +154,11 @@ json::Document JsonReader::ParseStatRequests() {
         builder.Key("curvature")
             .Value(stat->curvature)
             .Key("route_length")
-            .Value(stat->route_length)
+            .Value((int)stat->route_length)
             .Key("stop_count")
-            .Value(int(stat->stops))
+            .Value((int)stat->stops)
             .Key("unique_stop_count")
-            .Value(int(stat->unique_stops.size()));
+            .Value((int)stat->unique_stops.size());
       }
       builder.EndDict();
     } else if (type == "Stop"s) {
@@ -292,11 +278,6 @@ void JsonReader::ParseRenderSettings() {
 void JsonReader::ParseRoutingSettings() {
   bus_velocity_ = requests_.routing_settings.at("bus_velocity"s).AsDouble();
   bus_wait_time_ = requests_.routing_settings.at("bus_wait_time"s).AsInt();
-}
-
-bool JsonReader::IsEdgeAdded(const std::string_view from,
-                             const std::string_view to) {
-  return added_adges_.count({from, to});
 }
 
 size_t JsonReader::GetVertexCount() const {

@@ -11,6 +11,7 @@
 #include "domain.h"
 #include "json.h"
 #include "request_handler.h"
+#include "transport_router.h"
 
 using namespace std::literals;
 
@@ -19,7 +20,10 @@ JsonReader::JsonReader(std::istream& input,
     : document_(json::Load(input)),
       requests_(DivideRequests()),
       catalogue_(&catalogue),
-      graph_(GetVertexCount()) {}
+      router_(GetVertexCount(),
+              requests_.routing_settings.at("bus_velocity").AsDouble(),
+              requests_.routing_settings.at("bus_wait_time").AsInt(),
+              catalogue) {}
 
 RequestsInfo JsonReader::DivideRequests() {
   RequestsInfo result;
@@ -46,7 +50,6 @@ RequestsInfo JsonReader::DivideRequests() {
 }
 
 void JsonReader::ParseRequests(std::ostream& out) {
-  ParseRoutingSettings();
   ParseBaseRequests();
   ParseRenderSettings();
   json::Document stat_result = ParseStatRequests();
@@ -63,7 +66,7 @@ void JsonReader::ParseBaseRequests() {
       double latitude = request_as_map.at("latitude"s).AsDouble();
       double longitude = request_as_map.at("longitude"s).AsDouble();
       auto stop = catalogue_->AddStop(id, {latitude, longitude});
-      AddStopToGraph((*stop)->id);
+      router_.AddStopToGraph((*stop)->id);
     }
   }
 
@@ -100,39 +103,18 @@ void JsonReader::ParseBaseRequests() {
       auto bus = catalogue_->AddBus(id, stops_sv, is_roundtrip);
       if (bus) {
         renderer_.AddBusToMap(bus.value()->id, *bus);
-        for (auto it_l = stops_sv.begin(); it_l != stops_sv.end() - 1; ++it_l) {
-          std::string_view stop_from_name = catalogue_->FindStop(*it_l)->id;
-          size_t current_span_count = 0;
-          double current_travel_time = 0.0;
-          for (auto it_r = it_l + 1; it_r != stops_sv.end(); ++it_r) {
-            std::string_view stop_to_name = catalogue_->FindStop(*it_r)->id;
-            graph::VertexId stop_from_id, stop_to_id;
-            stop_from_id = stop_name_to_in_vertex_id_.at(stop_from_name) + 1;
-            stop_to_id = stop_name_to_in_vertex_id_.at(stop_to_name);
-
-            ++current_span_count;
-            std::string_view prev_stop = catalogue_->FindStop(*(it_r - 1))->id;
-            current_travel_time +=
-                GetTravelTime(catalogue_->GetDistance(prev_stop, stop_to_name));
-            graph::EdgeId edge =
-                graph_.AddEdge({stop_from_id, stop_to_id, current_travel_time});
-            edge_to_bus_name_[edge] = (*bus)->id;
-            edge_to_span_count_[edge] = current_span_count;
-          }
-          renderer_.AddStopToMap(stop_from_name,
-                                 catalogue_->FindStop(stop_from_name));
+        for (const auto& stop : (*bus)->route) {
+          renderer_.AddStopToMap(stop->id, stop);
         }
-        auto last_stop = catalogue_->FindStop(stops_sv.back());
-        renderer_.AddStopToMap(last_stop->id, last_stop);
+        router_.AddBusToGraph(*bus);
       }
     }
   }
+  router_.BuildRouter();
 }
 
 json::Document JsonReader::ParseStatRequests() {
-  GraphData graph_data{stop_name_to_in_vertex_id_, vertex_id_to_stop_name_,
-                       edge_to_bus_name_, edge_to_span_count_, waiting_edges_};
-  RequestHandler handler{*catalogue_, renderer_, graph_, graph_data};
+  RequestHandler handler{*catalogue_, renderer_, router_};
 
   json::Builder builder;
   builder.StartArray();
@@ -189,18 +171,15 @@ json::Document JsonReader::ParseStatRequests() {
       builder.Key("map").Value(val.AsString());
       builder.EndDict();
     } else if (type == "Route"s) {
-      builder.StartDict().Key("request_id").Value(id);
       std::string from_stop_raw_name = request_as_map.at("from"s).AsString();
       std::string to_stop_raw_name = request_as_map.at("to"s).AsString();
 
       const Stop* from_stop = catalogue_->FindStop(from_stop_raw_name);
       const Stop* to_stop = catalogue_->FindStop(to_stop_raw_name);
 
-      json::Dict routing_result = handler.FindRoute(from_stop->id, to_stop->id);
-      for (const auto& [key, value] : routing_result) {
-        builder.Key(key).Value(value.GetValue());
-      }
-      builder.EndDict();
+      json::Dict routing_result =
+          handler.FindRoute(from_stop->id, to_stop->id, id);
+      builder.Value(routing_result);
     }
   }
 
@@ -275,11 +254,6 @@ void JsonReader::ParseRenderSettings() {
   renderer_.SetSettings(settings);
 }
 
-void JsonReader::ParseRoutingSettings() {
-  bus_velocity_ = requests_.routing_settings.at("bus_velocity"s).AsDouble();
-  bus_wait_time_ = requests_.routing_settings.at("bus_wait_time"s).AsInt();
-}
-
 size_t JsonReader::GetVertexCount() const {
   std::unordered_set<std::string> stops_sv;
   for (const auto& request : requests_.base_requests) {
@@ -292,24 +266,6 @@ size_t JsonReader::GetVertexCount() const {
   }
 
   return stops_sv.size() * 2;
-}
-
-void JsonReader::AddStopToGraph(std::string_view stop_name) {
-  if (!stop_name_to_in_vertex_id_.count(stop_name)) {
-    vertex_id_to_stop_name_[current_vertex_id_] = stop_name;
-    stop_name_to_in_vertex_id_[stop_name] = current_vertex_id_;
-    ++current_vertex_id_;
-    vertex_id_to_stop_name_[current_vertex_id_] = stop_name;
-    ++current_vertex_id_;
-    graph::EdgeId edge =
-        graph_.AddEdge({current_vertex_id_ - 2, current_vertex_id_ - 1,
-                        (double)bus_wait_time_});
-    waiting_edges_.insert(edge);
-  }
-}
-
-double JsonReader::GetTravelTime(double distance) const {
-  return (distance / 1000) / (bus_velocity_ / 60);
 }
 
 svg::Rgb JsonReader::ArrayToRgb(const json::Node& node) {

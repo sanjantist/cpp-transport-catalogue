@@ -67,16 +67,6 @@ void catalogue::TransportCatalogue::AddDistances(std::string_view from_stop,
   }
 }
 
-bool catalogue::TransportCatalogue::HasDistance(
-    std::string_view from_stop, std::string_view to_stop) const {
-  auto pos = stops_to_distances_.find({from_stop, to_stop});
-  if (pos != stops_to_distances_.end()) {
-    return true;
-  }
-  pos = stops_to_distances_.find({to_stop, from_stop});
-  return pos != stops_to_distances_.end();
-}
-
 int catalogue::TransportCatalogue::GetDistance(std::string_view from_stop,
                                                std::string_view to_stop) const {
   auto pos = stops_to_distances_.find(std::pair(from_stop, to_stop));

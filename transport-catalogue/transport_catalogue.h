@@ -24,7 +24,6 @@ class TransportCatalogue {
                                  const geo::Coordinates& coords);
   void AddDistances(std::string_view from_stop, std::string_view to_stop,
                     int distance);
-  bool HasDistance(std::string_view from_stop, std::string_view to_stop) const;
 
   int GetDistance(std::string_view from_stop, std::string_view to_stop) const;
   std::optional<BusStat> GetBusStat(std::string_view bus_name) const;

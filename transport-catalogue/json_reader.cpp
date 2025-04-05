@@ -1,7 +1,6 @@
 #include "json_reader.h"
 
 #include <cassert>
-#include <cstddef>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -19,11 +18,7 @@ JsonReader::JsonReader(std::istream& input,
                        catalogue::TransportCatalogue& catalogue)
     : document_(json::Load(input)),
       requests_(DivideRequests()),
-      catalogue_(&catalogue),
-      router_(GetVertexCount(),
-              requests_.routing_settings.at("bus_velocity").AsDouble(),
-              requests_.routing_settings.at("bus_wait_time").AsInt(),
-              catalogue) {}
+      catalogue_(&catalogue) {}
 
 RequestsInfo JsonReader::DivideRequests() {
   RequestsInfo result;
@@ -65,8 +60,7 @@ void JsonReader::ParseBaseRequests() {
       std::string id = request_as_map.at("name"s).AsString();
       double latitude = request_as_map.at("latitude"s).AsDouble();
       double longitude = request_as_map.at("longitude"s).AsDouble();
-      auto stop = catalogue_->AddStop(id, {latitude, longitude});
-      router_.AddStopToGraph((*stop)->id);
+      catalogue_->AddStop(id, {latitude, longitude});
     }
   }
 
@@ -106,15 +100,16 @@ void JsonReader::ParseBaseRequests() {
         for (const auto& stop : (*bus)->route) {
           renderer_.AddStopToMap(stop->id, stop);
         }
-        router_.AddBusToGraph(*bus);
       }
     }
   }
-  router_.BuildRouter();
 }
 
 json::Document JsonReader::ParseStatRequests() {
-  RequestHandler handler{*catalogue_, renderer_, router_};
+  router::TransportRouter router(
+      requests_.routing_settings.at("bus_velocity").AsDouble(),
+      requests_.routing_settings.at("bus_wait_time").AsInt(), *catalogue_);
+  RequestHandler handler{*catalogue_, renderer_, router};
 
   json::Builder builder;
   builder.StartArray();
@@ -252,20 +247,6 @@ void JsonReader::ParseRenderSettings() {
   }
 
   renderer_.SetSettings(settings);
-}
-
-size_t JsonReader::GetVertexCount() const {
-  std::unordered_set<std::string> stops_sv;
-  for (const auto& request : requests_.base_requests) {
-    auto request_as_map = request.AsMap();
-    std::string type = request_as_map.at("type"s).AsString();
-    if (type == "Stop"s) {
-      std::string stop_name = request_as_map.at("name"s).AsString();
-      stops_sv.insert(stop_name);
-    }
-  }
-
-  return stops_sv.size() * 2;
 }
 
 svg::Rgb JsonReader::ArrayToRgb(const json::Node& node) {

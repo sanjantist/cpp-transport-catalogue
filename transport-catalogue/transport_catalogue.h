@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <deque>
 #include <optional>
 #include <set>
@@ -26,9 +27,12 @@ class TransportCatalogue {
                     int distance);
 
   int GetDistance(std::string_view from_stop, std::string_view to_stop) const;
+  std::size_t GetStopCount() const;
   std::optional<BusStat> GetBusStat(std::string_view bus_name) const;
   const std::set<std::string_view>* GetBusesByStop(
       std::string_view stop_name) const;
+  const std::deque<Stop>* GetAllStops() const;
+  const std::deque<Bus>* GetAllBuses() const;
 
   BusPtr FindBus(std::string_view bus) const;
   StopPtr FindStop(std::string_view stop) const;

@@ -28,10 +28,30 @@ json::Dict RequestHandler::FindRoute(std::string_view from, std::string_view to,
   json::Builder builder;
   builder.StartDict();
   builder.Key("request_id").Value(request_id);
-  json::Dict RouteInfo = router_.GetRouteInfo(from, to);
-  for (const auto& [key, value] : RouteInfo) {
-    builder.Key(key).Value(value.GetValue());
+  std::optional<router::RouteInfo> route_info = router_.GetRouteInfo(from, to);
+  if (!route_info) {
+    return builder.Key("error_message")
+        .Value("not found")
+        .EndDict()
+        .Build()
+        .AsMap();
   }
-  builder.EndDict();
+  builder.Key("total_time").Value((*route_info).total_time);
+  builder.Key("items").StartArray();
+  for (const auto& item : (*route_info).items) {
+    builder.StartDict();
+    for (const auto& [key, value] : item) {
+      builder.Key(key);
+      if (key == "time") {
+        builder.Value(std::stod(value));
+      } else if (key == "span_count") {
+        builder.Value(std::stoi(value));
+      } else {
+        builder.Value(value);
+      }
+    }
+    builder.EndDict();
+  }
+  builder.EndArray().EndDict();
   return builder.Build().AsMap();
 }

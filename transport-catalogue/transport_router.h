@@ -1,7 +1,9 @@
 #pragma once
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 #include "graph.h"
 #include "json.h"
@@ -9,20 +11,22 @@
 #include "transport_catalogue.h"
 
 namespace router {
+struct RouteInfo {
+  double total_time;
+  std::vector<std::unordered_map<std::string, std::string>> items;
+};
+
 class TransportRouter {
  public:
-  TransportRouter(size_t vertex_count, double bus_velocity, int bus_wait_time,
+  TransportRouter(double bus_velocity, int bus_wait_time,
                   const catalogue::TransportCatalogue& db);
-  void AddStopToGraph(std::string_view stop_name);
-  void AddBusToGraph(catalogue::TransportCatalogue::BusPtr bus);
-  void BuildRouter();
-  json::Dict GetRouteInfo(std::string_view from_stop,
-                          std::string_view to_stop) const;
+  std::optional<RouteInfo> GetRouteInfo(std::string_view from_stop,
+                                        std::string_view to_stop) const;
 
  private:
+  const catalogue::TransportCatalogue& db_;
   graph::DirectedWeightedGraph<double> graph_;
   std::unique_ptr<graph::Router<double>> router_;
-  const catalogue::TransportCatalogue& db_;
 
   double bus_velocity_;
   int bus_wait_time_;
@@ -35,5 +39,8 @@ class TransportRouter {
   std::unordered_set<graph::EdgeId> waiting_edges_;
 
   double GetTravelTime(double distance) const;
+  void AddStopToGraph(std::string_view stop_name);
+  void AddBusToGraph(catalogue::TransportCatalogue::BusPtr bus);
+  void BuildRouter();
 };
 }  // namespace router

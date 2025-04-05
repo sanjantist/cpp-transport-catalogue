@@ -30,14 +30,11 @@ class JsonReader {
   RequestsInfo requests_;
   catalogue::TransportCatalogue *catalogue_;
   renderer::MapRenderer renderer_;
-  router::TransportRouter router_;
 
   RequestsInfo DivideRequests();
   void ParseBaseRequests();
   json::Document ParseStatRequests();
   void ParseRenderSettings();
-
-  size_t GetVertexCount() const;
 
   svg::Rgb ArrayToRgb(const json::Node &node);
   svg::Rgba ArrayToRgba(const json::Node &node);

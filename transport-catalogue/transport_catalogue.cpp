@@ -81,6 +81,10 @@ int catalogue::TransportCatalogue::GetDistance(std::string_view from_stop,
   }
 }
 
+std::size_t catalogue::TransportCatalogue::GetStopCount() const {
+  return stops_.size();
+}
+
 std::optional<BusStat> catalogue::TransportCatalogue::GetBusStat(
     std::string_view bus_name) const {
   BusStat result;
@@ -143,4 +147,11 @@ const std::set<std::string_view>* catalogue::TransportCatalogue::GetBusesByStop(
   }
 
   return nullptr;
+}
+
+const std::deque<Stop>* catalogue::TransportCatalogue::GetAllStops() const {
+  return &stops_;
+}
+const std::deque<Bus>* catalogue::TransportCatalogue::GetAllBuses() const {
+  return &buses_;
 }
